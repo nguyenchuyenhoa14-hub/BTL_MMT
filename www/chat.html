@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AsynapRous Chat - Hybrid P2P</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a2e; color: #eee; height: 100vh;
+      display: flex; flex-direction: column;
+    }
+
+    .header {
+      background: #16213e; padding: 10px 20px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 2px solid #0f3460;
+    }
+    .header h1 { font-size: 18px; color: #e94560; }
+    .header .info { font-size: 13px; color: #a0a0b0; }
+    .header button {
+      background: #e94560; border: none; color: white;
+      padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px;
+    }
+    .header button:hover { background: #c73650; }
+
+    /* Login */
+    #login-screen {
+      display: flex; justify-content: center; align-items: center;
+      height: 100vh; background: #1a1a2e;
+    }
+    .login-box {
+      background: #16213e; padding: 40px; border-radius: 12px;
+      width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .login-box h2 { text-align: center; color: #e94560; margin-bottom: 8px; }
+    .login-box p { text-align: center; color: #777; margin-bottom: 20px; font-size: 13px; }
+    .login-box input {
+      width: 100%; padding: 10px 14px; margin-bottom: 12px;
+      border: 1px solid #333; border-radius: 6px;
+      background: #0f3460; color: #eee; font-size: 14px;
+    }
+    .login-box input:focus { outline: none; border-color: #e94560; }
+    .login-box .btn-group { display: flex; gap: 10px; margin-top: 8px; }
+    .login-box button {
+      flex: 1; padding: 10px; border: none; border-radius: 6px;
+      cursor: pointer; font-size: 14px; font-weight: 600;
+    }
+    .btn-login { background: #e94560; color: white; }
+    .btn-register { background: #0f3460; color: #e94560; border: 1px solid #e94560 !important; }
+    .login-error { color: #e94560; text-align: center; margin-top: 10px; font-size: 13px; }
+
+    /* Main Layout */
+    #chat-screen { display: none; flex: 1; flex-direction: column; }
+    .main-content { display: flex; flex: 1; overflow: hidden; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 260px; background: #16213e;
+      border-right: 1px solid #0f3460;
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    .sidebar-section { padding: 12px; border-bottom: 1px solid #0f3460; }
+    .sidebar-section h3 {
+      font-size: 11px; text-transform: uppercase; color: #666;
+      margin-bottom: 8px; letter-spacing: 1px;
+    }
+    .sidebar-item {
+      padding: 8px 12px; border-radius: 6px; cursor: pointer;
+      margin-bottom: 2px; font-size: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sidebar-item:hover { background: #0f3460; }
+    .sidebar-item.active { background: #e94560; color: white; }
+    .sidebar-item .badge {
+      background: #e94560; color: white; font-size: 10px;
+      padding: 2px 6px; border-radius: 10px; margin-left: auto;
+    }
+    .peer-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-online { background: #4CAF50; }
+    .dot-connected { background: #00E676; box-shadow: 0 0 4px #00E676; }
+
+    /* Chat Area */
+    .chat-area { flex: 1; display: flex; flex-direction: column; }
+    .chat-header {
+      padding: 12px 20px; background: #16213e;
+      border-bottom: 1px solid #0f3460;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .chat-header .title { font-weight: bold; font-size: 16px; }
+    .mode-badge {
+      font-size: 10px; padding: 3px 10px; border-radius: 10px;
+      font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .badge-cs { background: #2196F3; color: white; }
+    .badge-p2p { background: #4CAF50; color: white; }
+
+    .chat-messages {
+      flex: 1; overflow-y: auto; padding: 16px 20px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .message { display: flex; gap: 10px; align-items: flex-start; }
+    .msg-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold; font-size: 14px; flex-shrink: 0;
+    }
+    .msg-avatar.cs { background: #0f3460; color: #2196F3; }
+    .msg-avatar.p2p { background: #1B5E20; color: #4CAF50; }
+    .msg-body { flex: 1; }
+    .msg-sender { font-weight: 600; font-size: 14px; }
+    .msg-sender .ts { font-weight: 400; font-size: 11px; color: #666; margin-left: 8px; }
+    .msg-sender .tag {
+      font-size: 9px; padding: 1px 5px; border-radius: 4px;
+      margin-left: 6px; font-weight: bold;
+    }
+    .tag-cs { background: #2196F3; color: white; }
+    .tag-p2p { background: #4CAF50; color: white; }
+    .msg-text { font-size: 14px; line-height: 1.5; color: #ccc; }
+    .sys-msg { text-align: center; color: #555; font-size: 12px; padding: 6px; }
+
+    /* Input */
+    .chat-input {
+      padding: 12px 20px; background: #16213e;
+      border-top: 1px solid #0f3460; display: flex; gap: 10px;
+    }
+    .chat-input input {
+      flex: 1; padding: 10px 14px; border: 1px solid #333;
+      border-radius: 8px; background: #0f3460; color: #eee; font-size: 14px;
+    }
+    .chat-input input:focus { outline: none; border-color: #e94560; }
+    .chat-input button {
+      padding: 10px 20px; border: none; color: white;
+      border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px;
+    }
+    .btn-cs { background: #2196F3; }
+    .btn-cs:hover { background: #1976D2; }
+    .btn-p2p { background: #4CAF50; }
+    .btn-p2p:hover { background: #388E3C; }
+
+    /* Notification */
+    .notif {
+      position: fixed; top: 20px; right: 20px;
+      background: #0f3460; border: 1px solid #e94560;
+      color: #eee; padding: 12px 20px; border-radius: 8px;
+      font-size: 13px; z-index: 1000; display: none;
+    }
+
+    /* Legend */
+    .legend {
+      padding: 6px 20px; background: #111; border-top: 1px solid #333;
+      display: flex; gap: 24px; font-size: 11px; color: #777;
+    }
+    .legend span { display: flex; align-items: center; gap: 5px; }
+    .ldot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .ldot-cs { background: #2196F3; }
+    .ldot-p2p { background: #4CAF50; }
+
+    /* Modal */
+    .modal-bg {
+      display: none; position: fixed; top:0;left:0;right:0;bottom:0;
+      background: rgba(0,0,0,0.6); z-index: 999;
+      justify-content: center; align-items: center;
+    }
+    .modal {
+      background: #16213e; padding: 30px; border-radius: 12px; width: 400px;
+    }
+    .modal h3 { color: #e94560; margin-bottom: 16px; }
+    .modal input {
+      width: 100%; padding: 10px; margin-bottom: 10px;
+      border: 1px solid #333; border-radius: 6px; background: #0f3460; color: #eee;
+    }
+    .modal .btn-group { display: flex; gap: 10px; margin-top: 10px; }
+    .modal button { flex:1; padding:10px; border:none; border-radius:6px; cursor:pointer; font-weight:600; }
+    .modal .ok { background: #e94560; color: white; }
+    .modal .no { background: #333; color: #aaa; }
+  </style>
+</head>
+<body>
+
+<div id="notif" class="notif"></div>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <h2>🔗 AsynapRous Chat</h2>
+    <p>Hybrid P2P Chat — CO3093/CO3094</p>
+    <input type="text" id="login-user" placeholder="Username">
+    <input type="password" id="login-pass" placeholder="Password">
+    <div class="btn-group">
+      <button class="btn-login" onclick="doLogin()">Login</button>
+      <button class="btn-register" onclick="doRegister()">Register</button>
+    </div>
+    <p id="login-err" class="login-error"></p>
+  </div>
+</div>
+
+<!-- CHAT -->
+<div id="chat-screen" style="display:none;">
+  <div class="header">
+    <h1>🔗 AsynapRous Chat</h1>
+    <span class="info">
+      <strong id="h-user"></strong> | Peer: <strong id="h-peer"></strong> |
+      P2P Port: <strong id="h-p2p"></strong>
+    </span>
+    <button onclick="doLogout()">Logout</button>
+  </div>
+
+  <div class="main-content">
+    <div class="sidebar">
+      <!-- Channels -->
+      <div class="sidebar-section">
+        <h3>🔵 Channels (Client-Server)</h3>
+        <div id="ch-list"></div>
+        <div class="sidebar-item" onclick="showModal('ch-modal')" style="color:#e94560;margin-top:6px;">+ New Channel</div>
+      </div>
+
+      <!-- P2P Connected -->
+      <div class="sidebar-section">
+        <h3>🟢 P2P Connected (TCP Direct)</h3>
+        <div id="p2p-list">
+          <div style="color:#555;font-size:12px;padding:4px;">No TCP connections</div>
+        </div>
+      </div>
+
+      <!-- Online peers from tracker -->
+      <div class="sidebar-section" style="flex:1;">
+        <h3>👥 Online (from Tracker)</h3>
+        <div id="online-list"></div>
+      </div>
+    </div>
+
+    <!-- Chat Area -->
+    <div class="chat-area">
+      <div class="chat-header">
+        <span class="title" id="chat-title"># general</span>
+        <span class="mode-badge badge-cs" id="chat-badge">CLIENT-SERVER</span>
+        <span style="font-size:11px;color:#666;" id="chat-desc">Messages go through the Tracker server</span>
+      </div>
+      <div class="chat-messages" id="messages">
+        <div class="sys-msg">Welcome! Use <b style="color:#2196F3">Channels</b> (Client-Server) or click a <b style="color:#4CAF50">P2P peer</b> for direct messaging.</div>
+      </div>
+      <div class="chat-input">
+        <input type="text" id="msg-input" placeholder="Type a message..."
+               onkeydown="if(event.key==='Enter') sendMsg()">
+        <button id="send-btn" class="btn-cs" onclick="sendMsg()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><span class="ldot ldot-cs"></span> Client-Server: Channel msgs go through Tracker</span>
+    <span><span class="ldot ldot-p2p"></span> P2P: DMs go directly via TCP socket</span>
+  </div>
+</div>
+
+<!-- New Channel Modal -->
+<div id="ch-modal" class="modal-bg" onclick="if(event.target===this)hideModal('ch-modal')">
+  <div class="modal">
+    <h3>Create Channel</h3>
+    <input type="text" id="ch-name" placeholder="Channel name">
+    <div class="btn-group">
+      <button class="ok" onclick="doCreateChannel()">Create</button>
+      <button class="no" onclick="hideModal('ch-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== STATE ==========
+const S = {
+  user: '', peerId: '', p2pPort: 0,
+  view: 'channel',       // 'channel' or 'dm'
+  channel: 'general',    // current channel name
+  dmPeer: null,           // {peer_id, username} for DM view
+  lastChTs: 0,            // last channel message timestamp
+  lastP2pTs: 0,           // last p2p message timestamp
+};
+
+// ========== HELPERS ==========
+async function api(path, method='GET', body=null) {
+  const o = { method, headers: {'Content-Type':'application/json'} };
+  if (body) o.body = JSON.stringify(body);
+  try {
+    const r = await fetch(path, o);
+    const t = await r.text();
+    try { return JSON.parse(t); } catch { return {raw:t}; }
+  } catch(e) { return {error:e.message}; }
+}
+
+function notify(msg) {
+  const el = document.getElementById('notif');
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+function esc(t) { const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+function showModal(id) { document.getElementById(id).style.display='flex'; }
+function hideModal(id) { document.getElementById(id).style.display='none'; }
+
+// ========== AUTH ==========
+async function doLogin() {
+  const user = document.getElementById('login-user').value.trim();
+  const pass = document.getElementById('login-pass').value.trim();
+  if (!user || !pass) { document.getElementById('login-err').textContent='Fill both fields'; return; }
+
+  const r = await api('/login','POST',{username:user,password:pass});
+  if (r.error) { document.getElementById('login-err').textContent=r.error; return; }
+
+  S.user = user;
+  S.peerId = r.peer_id || r.session_id?.substring(0,8) || user;
+  S.p2pPort = r.p2p_port || '?';
+
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('chat-screen').style.display='flex';
+  document.getElementById('h-user').textContent = S.user;
+  document.getElementById('h-peer').textContent = S.peerId;
+  document.getElementById('h-p2p').textContent = S.p2pPort;
+
+  notify('Welcome, '+S.user+'! P2P port: '+S.p2pPort);
+  loadChannels(); loadPeers(); pollMessages();
+  setInterval(loadPeers, 4000);
+  setInterval(pollMessages, 2000);
+  setInterval(() => api('/heartbeat','POST',{peer_id:S.peerId}), 15000);
+}
+
+async function doRegister() {
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value.trim();
+  if(!u||!p){document.getElementById('login-err').textContent='Fill both fields';return;}
+  const r = await api('/register','POST',{username:u,password:p});
+  if(r.error) document.getElementById('login-err').textContent=r.error;
+  else notify('Registered! Now login.');
+}
+
+async function doLogout() {
+  await api('/logout','POST',{peer_id:S.peerId});
+  location.reload();
+}
+
+// ========== VIEWS ==========
+function viewChannel(name) {
+  S.view='channel'; S.channel=name; S.dmPeer=null; S.lastChTs=0;
+  document.getElementById('chat-title').textContent = '# '+name;
+  document.getElementById('chat-badge').className='mode-badge badge-cs';
+  document.getElementById('chat-badge').textContent='CLIENT-SERVER';
+  document.getElementById('chat-desc').textContent='Messages go through the Tracker server';
+  document.getElementById('send-btn').className='btn-cs';
+  document.getElementById('msg-input').placeholder='Message #'+name+' (via server)...';
+  document.getElementById('messages').innerHTML=
+    '<div class="sys-msg">📢 Channel <b>#'+name+'</b> — Messages are relayed through the Tracker (Client-Server)</div>';
+  loadChannels(); pollMessages();
+}
+
+function viewDm(peerId, username) {
+  S.view='dm'; S.dmPeer={peer_id:peerId,username:username}; S.channel=null; S.lastP2pTs=0;
+  document.getElementById('chat-title').textContent = '🔒 DM → '+username;
+  document.getElementById('chat-badge').className='mode-badge badge-p2p';
+  document.getElementById('chat-badge').textContent='P2P DIRECT';
+  document.getElementById('chat-desc').textContent='Messages go directly via TCP socket (not through server!)';
+  document.getElementById('send-btn').className='btn-p2p';
+  document.getElementById('msg-input').placeholder='Private msg to '+username+' (P2P TCP)...';
+  document.getElementById('messages').innerHTML=
+    '<div class="sys-msg">🔒 <b>P2P Direct</b> with <b>'+username+'</b> — TCP socket connection, no server involved!</div>';
+  loadChannels(); pollMessages();
+}
+
+// ========== CHANNELS ==========
+async function loadChannels() {
+  const r = await api('/get-channels','GET');
+  const el = document.getElementById('ch-list');
+  el.innerHTML='';
+  if(r.channels) r.channels.forEach(ch => {
+    const act = (S.view==='channel'&&ch.name===S.channel)?' active':'';
+    el.innerHTML+=`<div class="sidebar-item${act}" onclick="viewChannel('${ch.name}')">
+      # ${ch.name} <span class="badge">${ch.message_count}</span></div>`;
+  });
+}
+
+async function doCreateChannel() {
+  const n=document.getElementById('ch-name').value.trim();
+  if(!n)return;
+  await api('/create-channel','POST',{channel:n,username:S.user});
+  hideModal('ch-modal'); loadChannels(); notify('Channel #'+n+' created!');
+}
+
+// ========== PEERS ==========
+async function loadPeers() {
+  // Online peers from tracker
+  const r = await api('/get-list','GET');
+  const el = document.getElementById('online-list');
+  el.innerHTML='';
+  if(r.peers) r.peers.forEach(p => {
+    if(p.username===S.user) return;
+    el.innerHTML+=`<div class="sidebar-item" onclick="connectAndDm('${p.peer_id}','${p.ip}',${p.port},'${p.username}')"
+      title="Click to connect P2P TCP and open DM">
+      <span class="peer-dot dot-online"></span> ${p.username}
+      <span style="font-size:10px;color:#666;margin-left:auto;">:${p.port}</span>
+    </div>`;
+  });
+
+  // Connected peers (real TCP!)
+  const c = await api('/connected-peers','GET');
+  const pl = document.getElementById('p2p-list');
+  pl.innerHTML='';
+  if(c.connected_peers && c.connected_peers.length>0) {
+    c.connected_peers.forEach(p => {
+      const act=(S.view==='dm'&&S.dmPeer&&S.dmPeer.peer_id===p.peer_id)?' active':'';
+      pl.innerHTML+=`<div class="sidebar-item${act}" onclick="viewDm('${p.peer_id}','${p.username}')"
+        style="color:#4CAF50;">
+        <span class="peer-dot dot-connected"></span> ${p.username}
+        <span style="font-size:10px;color:#4CAF50;margin-left:auto;">TCP ✓</span>
+      </div>`;
+    });
+  } else {
+    pl.innerHTML='<div style="color:#555;font-size:12px;padding:4px;">No TCP connections</div>';
+  }
+}
+
+async function connectAndDm(peerId, ip, port, username) {
+  notify('Connecting TCP to '+username+':'+port+'...');
+  const r = await api('/connect-peer','POST',{peer_id:peerId,ip:ip,port:port,username:username});
+  if(r.error) { notify('❌ '+r.error); return; }
+  notify('✅ TCP P2P connected to '+username+'!');
+  loadPeers();
+  viewDm(peerId, username);
+}
+
+// ========== MESSAGES ==========
+async function pollMessages() {
+  if(S.view==='channel' && S.channel) {
+    const r = await api('/get-messages','POST',{channel:S.channel,since:S.lastChTs});
+    if(r.messages && r.messages.length>0) {
+      r.messages.forEach(m => {
+        addMsg(m.sender, m.message, m.timestamp, 'cs');
+        S.lastChTs = Math.max(S.lastChTs, m.timestamp);
+      });
+    }
+  } else if(S.view==='dm') {
+    const r = await api('/get-p2p-messages','POST',{since:S.lastP2pTs});
+    if(r.messages && r.messages.length>0) {
+      r.messages.forEach(m => {
+        addMsg(m.sender||m.sender_id, m.message, m.timestamp, 'p2p');
+        S.lastP2pTs = Math.max(S.lastP2pTs, m.timestamp);
+      });
+    }
+  }
+}
+
+function addMsg(sender, text, ts, type) {
+  const el = document.getElementById('messages');
+  const time = ts ? new Date(ts*1000).toLocaleTimeString() : '';
+  const init = (sender||'?')[0].toUpperCase();
+  const avCls = type==='p2p'?'p2p':'cs';
+  const tagCls = type==='p2p'?'tag-p2p':'tag-cs';
+  const tagTxt = type==='p2p'?'P2P':'SERVER';
+  el.innerHTML+=`<div class="message">
+    <div class="msg-avatar ${avCls}">${init}</div>
+    <div class="msg-body">
+      <div class="msg-sender">${esc(sender)} <span class="tag ${tagCls}">${tagTxt}</span><span class="ts">${time}</span></div>
+      <div class="msg-text">${esc(text)}</div>
+    </div></div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+// ========== SEND ==========
+async function sendMsg() {
+  const inp = document.getElementById('msg-input');
+  const msg = inp.value.trim();
+  if(!msg) return;
+
+  if(S.view==='channel') {
+    // Channel → Client-Server (through Tracker)
+    await api('/send-channel','POST',{message:msg, channel:S.channel, username:S.user});
+  } else if(S.view==='dm' && S.dmPeer) {
+    // DM → P2P (direct TCP socket!)
+    const r = await api('/send-peer','POST',{peer_id:S.dmPeer.peer_id, message:msg});
+    if(r.error) { notify('❌ '+r.error); return; }
+    // Show our own message immediately
+    addMsg(S.user, msg, Date.now()/1000, 'p2p');
+  }
+  inp.value='';
+  if(S.view==='channel') setTimeout(pollMessages, 300);
+}
+</script>
+</body>
+</html>
